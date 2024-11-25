@@ -12,6 +12,7 @@ import ImageFeed from "./Utils/ImageFeed";
 import CannyEdge from "./Filtri/CannyEdge";
 import { Filter } from "./Utils/utils";
 import SobelEdge from "./Filtri/SobelEdge";
+import Laplacian from "./Filtri/Laplacian";
 
 function App() {
   const video = document.createElement("video");
@@ -37,6 +38,7 @@ function App() {
   const [boxes, setBoxes] = createSignal([] as HTMLDivElement[]);
 
   const [sigma, setSigma] = createSignal(1.4);
+
   const gaussian = createMemo(
     () => {
       const gaussian = Filter.Gaussian(sigma());
@@ -48,7 +50,18 @@ function App() {
       equals: (a, b) => a.sigma === b.sigma,
     }
   );
+  const laplacian = createMemo(
+    ()  => { 
+      const laplacian = Filter.LaplacianOfGaussian(sigma())
+      filterInstance?.updateLaplacian(laplacian);
+      return laplacian;
+    },
+    null,
+    {
+      equals: (a, b) => a.sigma === b.sigma,
+    }
 
+  );
   const containerStyle = createMemo(() => ({
     transform: `rotateX(${rotation().x}deg) rotateY(${
       rotation().y
@@ -149,12 +162,14 @@ function App() {
     switch (currentFilter()) {
       case 0:
         filterInstance = new CannyEdge(videoFeed, gaussian());
+        // filterInstance = null
         break;
       case 1:
         filterInstance = new SobelEdge(videoFeed);
+        // filterInstance = null
         break;
       case 2:
-        filterInstance = null;
+        filterInstance = new Laplacian(videoFeed, laplacian());
         break;
     }
 
@@ -225,6 +240,7 @@ function App() {
           id="sigma"
           onInput={(e) => {
             setSigma(parseFloat(e.target.value));
+            console.log(e.target.value)
           }}
           min="0.1"
           max="5"

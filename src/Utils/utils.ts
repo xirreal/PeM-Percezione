@@ -89,7 +89,7 @@ class Matrix {
     const ctx = canvas.getContext("2d")!;
     const imageData = ctx.createImageData(this.width, this.height);
     const u8Data = new Uint8ClampedArray(this.data.length);
-    for(let i = 0; i < this.data.length; i++) {
+    for (let i = 0; i < this.data.length; i++) {
       u8Data[i] = this.data[i] * 255;
     }
     imageData.data.set(u8Data);
@@ -145,6 +145,45 @@ class Filter {
 
     for (let i = 0; i < size * size; i++) {
       data[i] /= sum;
+    }
+
+    return new Filter(size, data, sigma);
+  }
+  static LaplacianOfGaussian(sigma: number): Filter {
+    // Crea un filtro di dimensione size*size, con size = 3*sigma + 1
+    let size = Math.floor(sigma * 3) + 1;
+    // se size e' pari, lo rende dispari
+    size = size % 2 === 0 ? size + 1 : size;
+    // Crea un array di dimensione size*size
+    const data = new Float32Array(size * size);
+    // Calcola il centro del filtro
+    const half = Math.floor(size / 2);
+    // Inizializza la somma a 0
+    let sum = 0;
+
+    for (let i = 0; i < size; i++) {
+      for (let j = 0; j < size; j++) {
+        // Calcola la posizione relativa al centro
+        const x = i - half;
+        const y = j - half;
+        const value =
+          // -(1 / (Math.PI * Math.pow(sigma, 4))) *
+          (1 - (x * x + y * y) / (2 * sigma * sigma)) *
+          Math.exp(-(x * x + y * y) / (2 * sigma * sigma));
+        data[i * size + j] = value;
+        sum += value;
+      }
+    }
+
+    // Normalizza i valori dell'immagine (assumendo che siano tra -255 e 255)
+    let min = Math.min(...data);
+    let max = Math.max(...data);
+
+
+    console.log(sum); 
+    // calcola il laplaciano della gaussiana
+    for (let i = 0; i < size * size; i++) {
+      data[i] = (data[i] - min) / (max - min)
     }
 
     return new Filter(size, data, sigma);
