@@ -18,6 +18,22 @@ class Matrix {
     }
   }
 
+  clone(): Matrix {
+    return new Matrix(this.width, this.height, new Float32Array(this.data));
+  }
+
+  setPixel(
+    x: number,
+    y: number,
+    pixel: [number, number, number, number]
+  ): void {
+    const index = (y * this.width + x) * 4;
+    this.data[index] = pixel[0];
+    this.data[index + 1] = pixel[1];
+    this.data[index + 2] = pixel[2];
+    this.data[index + 3] = pixel[3];
+  }
+
   getPixel(x: number, y: number): [number, number, number, number] {
     const index = (y * this.width + x) * 4;
     if (x < 0 || x >= this.width || y < 0 || y >= this.height) {
@@ -126,6 +142,11 @@ class Filter {
     new Float32Array([-1, -1, -1, -1, 8, -1, -1, -1, -1])
   );
 
+  static laplacian: Filter = new Filter(
+    3,
+    new Float32Array([0, -1, 0, -1, 4, -1, 0, -1, 0])
+  );
+
   static Gaussian(sigma: number): Filter {
     let size = Math.floor(sigma * 3) + 1;
     size = size % 2 === 0 ? size + 1 : size;
@@ -179,11 +200,9 @@ class Filter {
     let min = Math.min(...data);
     let max = Math.max(...data);
 
-
-    console.log(sum); 
     // calcola il laplaciano della gaussiana
     for (let i = 0; i < size * size; i++) {
-      data[i] = (data[i] - min) / (max - min)
+      data[i] = (data[i] - min) / (max - min);
     }
 
     return new Filter(size, data, sigma);

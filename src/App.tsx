@@ -1,213 +1,63 @@
-import {
-  createSignal,
-  createMemo,
-  onMount,
-  onCleanup,
-  createComputed,
-  createEffect,
-  on,
-} from "solid-js";
+import { createEffect, onMount, onCleanup } from "solid-js";
+import { createController } from "./Utils/ViewController";
 
-import ImageFeed from "./Utils/ImageFeed";
-import CannyEdge from "./Filtri/CannyEdge";
-import { Filter } from "./Utils/utils";
-import SobelEdge from "./Filtri/SobelEdge";
-import Laplacian from "./Filtri/Laplacian";
+import defaultImage from "/mela.jpg";
 
 function App() {
-  const video = document.createElement("video");
-  let sourceCanvas;
-  let videoFeed: ImageFeed;
-  let filterInstance: any;
-  let container;
-
-  const [currentFilter, setCurrentFilter] = createSignal(0);
-  const [isCtrlDown, setIsCtrlDown] = createSignal(false);
-  const [isExpanded, setIsExpanded] = createSignal(false);
-  const [isDown, setIsDown] = createSignal(false);
-  const [isDragging, setIsDragging] = createSignal(false);
-  const [previousMousePosition, setPreviousMousePosition] = createSignal({
-    x: 0,
-    y: 0,
-  });
-  const [rotation, setRotation] = createSignal({ x: -12, y: 33 });
-  const [distance, setDistance] = createSignal(100);
-  const [zoom, setZoom] = createSignal(1.5);
-
-  // boxes contains the divs for the canvases
-  const [boxes, setBoxes] = createSignal([] as HTMLDivElement[]);
-
-  const [sigma, setSigma] = createSignal(1.4);
-
-  const gaussian = createMemo(
-    () => {
-      const gaussian = Filter.Gaussian(sigma());
-      filterInstance?.updateGaussian(gaussian);
-      return gaussian;
-    },
-    null,
-    {
-      equals: (a, b) => a.sigma === b.sigma,
-    }
-  );
-  const laplacian = createMemo(
-    ()  => { 
-      const laplacian = Filter.LaplacianOfGaussian(sigma())
-      filterInstance?.updateLaplacian(laplacian);
-      return laplacian;
-    },
-    null,
-    {
-      equals: (a, b) => a.sigma === b.sigma,
-    }
-
-  );
-  const containerStyle = createMemo(() => ({
-    transform: `rotateX(${rotation().x}deg) rotateY(${
-      rotation().y
-    }deg) scale(${zoom()})`,
-  }));
-
-  createComputed(() => {
-    const boxCount = boxes().length;
-    let middleIndex = Math.floor(boxCount / 2);
-    if (middleIndex != 0 && boxCount % 2 === 0) {
-      middleIndex -= 0.5;
-    }
-
-    boxes().map((box, index) => {
-      if (isExpanded()) {
-        const zDistance = (index - middleIndex) * distance();
-        box.style.transform = `translateZ(${zDistance}px)`;
-        box.style.opacity = "0.9";
-      } else {
-        box.style.transform = "translateZ(0)";
-        box.style.opacity = "1";
-      }
-    });
-  });
-
-  const handleMouseDown = (e: MouseEvent) => {
-    setIsDown(true);
-    setPreviousMousePosition({ x: e.clientX, y: e.clientY });
-  };
-
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!isDown()) return;
-
-    const deltaMove = {
-      x: e.clientX - previousMousePosition().x,
-      y: e.clientY - previousMousePosition().y,
-    };
-
-    if (!isDragging() && Math.abs(deltaMove.x) < 2 && Math.abs(deltaMove.y) < 2)
-      return;
-    setIsDragging(true);
-
-    setRotation((prev) => ({
-      x: Math.min(Math.max(-80, prev.x + deltaMove.y * -0.5), 80),
-      y: prev.y + deltaMove.x * 0.5,
-    }));
-
-    setPreviousMousePosition({ x: e.clientX, y: e.clientY });
-  };
-
-  const handleMouseLeave = () => {
-    setIsDragging(false);
-  };
-
-  const handleMouseUp = () => {
-    setIsDown(false);
-    if (!isDragging()) {
-      setIsExpanded(!isExpanded());
-    }
-    setIsDragging(false);
-  };
-
-  const handleWheel = (e: WheelEvent) => {
-    e.preventDefault();
-
-    if (isCtrlDown()) {
-      setDistance((prev) =>
-        Math.min(Math.max(100, prev + e.deltaY * -0.5), 300)
-      );
-    } else {
-      setZoom((prev) => Math.min(Math.max(0.5, prev + e.deltaY * -0.001), 2));
-    }
-  };
-
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.code === "Space") {
-      setIsExpanded(!isExpanded());
-    } else if (e.code === "KeyR") {
-      setRotation({ x: -12, y: 33 });
-      setDistance(100);
-      setZoom(1.5);
-      setIsExpanded(false);
-    }
-
-    if (e.code === "ControlLeft") setIsCtrlDown(true);
-  };
-
-  const handleKeyUp = (e: KeyboardEvent) => {
-    if (e.code === "ControlLeft") setIsCtrlDown(false);
-  };
-
-  function initialize() {
-    if (!videoFeed) return;
-    videoFeed.clear();
-
-    console.log("Initializing filter");
-
-    switch (currentFilter()) {
-      case 0:
-        filterInstance = new CannyEdge(videoFeed, gaussian());
-        // filterInstance = null
-        break;
-      case 1:
-        filterInstance = new SobelEdge(videoFeed);
-        // filterInstance = null
-        break;
-      case 2:
-        filterInstance = new Laplacian(videoFeed, laplacian());
-        break;
-    }
-
-    const toRemove = container!.children.length - 1;
-    for (let i = 0; i < toRemove; i++) {
-      container!.lastChild.remove();
-    }
-
-    for (let canvas of filterInstance?.canvases || []) {
-      const box = document.createElement("div");
-      box.classList.add("box");
-      box.appendChild(canvas);
-      container!.append(box);
-    }
-
-    setBoxes(Array.from(container!.children) as HTMLDivElement[]);
-  }
-
-  createEffect(on(currentFilter, initialize));
+  let sourceCanvas: HTMLCanvasElement | undefined = undefined;
+  let container: HTMLDivElement | undefined = undefined;
+  const controller = createController();
 
   onMount(async () => {
-    document.addEventListener("keydown", handleKeyDown);
-    document.addEventListener("keyup", handleKeyUp);
-    document.addEventListener("contextmenu", (e) => e.preventDefault());
-
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-    video.srcObject = stream;
-    video.play();
-
-    videoFeed = new ImageFeed(video, sourceCanvas! as HTMLCanvasElement);
-    initialize();
+    controller.addEventListeners();
+    controller.setContainer(container!);
+    const result = await controller.initializeVideo(sourceCanvas!);
+    if (!result) {
+      controller.setImage(defaultImage);
+      // Disable camera option
+      const source = document.getElementById("source") as HTMLSelectElement;
+      source.value = "file";
+      const picker = document.getElementById("picker") as HTMLInputElement;
+      picker.style.display = "block";
+      source.disabled = true;
+    }
+    controller.initialize();
   });
 
   onCleanup(() => {
-    document.removeEventListener("keydown", handleKeyDown);
-    document.removeEventListener("keyup", handleKeyUp);
-    document.removeEventListener("contextmenu", (e) => e.preventDefault());
+    controller?.removeEventListeners?.();
   });
+
+  const handleSourceChange = (event: Event) => {
+    const target = event.target as HTMLSelectElement;
+    const isCamera = target.value === "camera";
+    const picker = document.getElementById("picker") as HTMLInputElement;
+    if (isCamera) {
+      controller.setImage(undefined);
+      picker.style.display = "none";
+    } else {
+      picker.style.display = "block";
+    }
+
+    // Clear files from input
+    picker.value = "";
+  };
+
+  const handleFileChange = (event: Event) => {
+    const target = event.target as HTMLInputElement;
+    const file = target.files?.[0];
+
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result;
+        controller.setImage(result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      controller.setImage(undefined);
+    }
+  };
 
   return (
     <div>
@@ -225,8 +75,7 @@ function App() {
         <select
           id="select"
           onChange={(e) => {
-            console.log("Changing filter")
-            setCurrentFilter(parseInt(e.target.value));
+            controller.changeFilter(parseInt(e.currentTarget.value));
           }}
         >
           <option value="0">Canny edge</option>
@@ -239,29 +88,42 @@ function App() {
           type="range"
           id="sigma"
           onInput={(e) => {
-            setSigma(parseFloat(e.target.value));
-            console.log(e.target.value)
+            controller.changeSigma(
+              parseFloat((e.target as HTMLInputElement).value)
+            );
           }}
           min="0.1"
           max="5"
           step="0.1"
-          value="1.4"
+          value={controller.getSigma()}
+        />
+        <br />
+        <label for="source">Sorgente:</label>
+        <select id="source" onChange={handleSourceChange}>
+          <option value="camera">Camera</option>
+          <option value="file">File</option>
+        </select>
+        <input
+          type="file"
+          id="picker"
+          accept="image/*"
+          onChange={handleFileChange}
         />
       </div>
 
       <div
         class="scene"
         id="scene"
-        onWheel={handleWheel}
-        onMouseUp={handleMouseUp}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
+        onWheel={controller.handleWheel}
+        onMouseUp={controller.handleMouseUp}
+        onMouseDown={controller.handleMouseDown}
+        onMouseMove={controller.handleMouseMove}
+        onMouseLeave={controller.handleMouseLeave}
       >
         <div
           class="container"
           id="container"
-          style={containerStyle()}
+          style={controller.containerStyle()}
           ref={container}
         >
           <div class="box">
