@@ -50,15 +50,16 @@ class CannyEdge {
         const [q] = gradient.getPixel(x, y);
         let angle = angles[x + y * RESOLUTION] * (180 / Math.PI);
 
-        if(q > maxIntensity) {
+        if (q > maxIntensity) {
           maxIntensity = q;
         }
 
-        if(angle < 0) {
+        if (angle < 0) {
           angle += 180;
         }
 
-        let q1 = 0, q2 = 0;
+        let q1 = 0,
+          q2 = 0;
 
         if ((0 <= angle && angle < 22.5) || (157.5 <= angle && angle <= 180)) {
           q1 = gradient.getPixel(x + 1, y)[0];
@@ -128,7 +129,6 @@ class CannyEdge {
       hysterisis.drawToCanvas(this.canvases[4]);
     });
   }
-
 
   updateGaussian(gaussian: Filter): void {
     this.gaussian = gaussian;

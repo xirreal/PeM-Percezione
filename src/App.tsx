@@ -93,7 +93,7 @@ function App() {
             );
           }}
           min="0.1"
-          max="5"
+          max="16"
           step="0.1"
           value={controller.getSigma()}
         />

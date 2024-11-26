@@ -18,6 +18,14 @@ class Matrix {
     }
   }
 
+  getData(): Uint8ClampedArray {
+    const u8Data = new Uint8ClampedArray(this.data.length);
+    for (let i = 0; i < this.data.length; i++) {
+      u8Data[i] = this.data[i] * 255;
+    }
+    return u8Data;
+  }
+
   clone(): Matrix {
     return new Matrix(this.width, this.height, new Float32Array(this.data));
   }

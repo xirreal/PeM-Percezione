@@ -9,7 +9,7 @@ class BlobDetector {
   constructor(imageFeed: ImageFeed, gaussian: Filter) {
     this.gaussian = gaussian;
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 4; i++) {
       this.canvases.push(document.createElement("canvas"));
       this.canvases[i].width = RESOLUTION;
       this.canvases[i].height = RESOLUTION;
@@ -42,61 +42,43 @@ class BlobDetector {
 
       normalizedLoG.drawToCanvas(this.canvases[2]);
 
-      // Step 4: Threshold the LoG result
-      const threshold = LoG.applyFilter((x, y) => {
-        const [r] = LoG.getPixel(x, y);
-        return [r < 0 ? 255 : 0, r < 0 ? 255 : 0, r < 0 ? 255 : 0, 255];
-      });
-      threshold.drawToCanvas(this.canvases[4]);
-
-      // Step 5: Hough transform for circle detection
       const radius = Math.round(this.gaussian.sigma! * Math.sqrt(2));
-      //   const houghSpace = new Array(RESOLUTION)
-      //     .fill(0)
-      //     .map(() => new Array(RESOLUTION).fill(0));
+      // Find the location of the peak response
+      let maxResponse = 0;
+      let maxResponseX = 0;
+      let maxResponseY = 0;
 
-      //   for (let y = 0; y < RESOLUTION; y++) {
-      //     for (let x = 0; x < RESOLUTION; x++) {
-      //       const [value] = threshold.getPixel(x, y);
-      //       if (value === 255) {
-      //         for (let theta = 0; theta < 360; theta += 1) {
-      //           const a = Math.round(
-      //             x - radius * Math.cos((theta * Math.PI) / 180)
-      //           );
-      //           const b = Math.round(
-      //             y - radius * Math.sin((theta * Math.PI) / 180)
-      //           );
-      //           if (a >= 0 && a < RESOLUTION && b >= 0 && b < RESOLUTION) {
-      //             houghSpace[a][b]++;
-      //           }
-      //         }
-      //       }
-      //     }
-      //   }
-
-      //   // Find the maximum value in the Hough space
-      //   let maxVal = 0;
-      //   let centerX = 0;
-      //   let centerY = 0;
-      //   for (let y = 0; y < RESOLUTION; y++) {
-      //     for (let x = 0; x < RESOLUTION; x++) {
-      //       if (houghSpace[x][y] > maxVal) {
-      //         maxVal = houghSpace[x][y];
-      //         centerX = x;
-      //         centerY = y;
-      //       }
-      //     }
-      //   }
+      normalizedLoG.applyFilter((x, y) => {
+        const [r] = normalizedLoG.getPixel(x, y);
+        if (r > maxResponse) {
+          maxResponse = r;
+          maxResponseX = x;
+          maxResponseY = y;
+        }
+        return [r, r, r, 255];
+      });
 
       // Draw the detected circle on the original image
       const result = image.clone();
-      this.drawCircle(
-        result,
-        Math.floor(RESOLUTION / 2),
-        Math.floor(RESOLUTION / 2),
-        radius
-      );
-      result.drawToCanvas(this.canvases[4]);
+      this.drawCircle(result, maxResponseX, maxResponseY, radius);
+      result.drawToCanvas(this.canvases[3]);
+
+      const maxResponseText = document.getElementById("response");
+      if (maxResponseText) {
+        maxResponseText.textContent = `Max response: ${maxResponse.toFixed(3)}`;
+      } else {
+        const container = this.canvases[3].parentElement;
+        const text = document.createElement("div");
+        text.id = "response";
+        text.style.position = "absolute";
+        text.style.top = "0";
+        text.style.left = "7px";
+        text.style.color = "white";
+        text.style.fontSize = "20px";
+        text.style.textShadow = "0 0 10px black";
+        text.textContent = `Max response: ${maxResponse.toFixed(3)}`;
+        container?.appendChild(text);
+      }
     });
   }
 
