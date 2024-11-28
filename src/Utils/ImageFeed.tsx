@@ -7,7 +7,8 @@ class ImageFeed {
   private ctx: CanvasRenderingContext2D;
   private filterCallbacks: ((image: Matrix) => void)[] = [];
   private frame: Matrix;
-  // private image: HTMLImageElement;
+  private image: HTMLImageElement;
+  private useCamera: boolean = false;
 
   private lastRender: number = 0;
 
@@ -18,26 +19,35 @@ class ImageFeed {
       willReadFrequently: true,
     })!;
 
-    video.addEventListener("loadedmetadata", () => {
-      this.canvas.width = RESOLUTION;
-      this.canvas.height = RESOLUTION;
-      this.drawFrame();
-    });
+    this.canvas.width = RESOLUTION;
+    this.canvas.height = RESOLUTION;
 
     this.frame = new Matrix(RESOLUTION, RESOLUTION);
 
-    // this.image = document.createElement("img");
-    // this.image.src = "https://shcors.uwu.network/https://www.melarossa.it/wp-content/uploads/2018/01/tagli-caschetto-emma-stone.jpg";
-    // this.image.crossOrigin = "Anonymous";
+    this.image = document.createElement("img");
+    this.image.crossOrigin = "Anonymous";
+
+    setTimeout(() => {
+      this.drawFrame();
+    });
   }
 
   private drawFrame(): void {
-    if (performance.now() - this.lastRender < MS_PER_FRAME) {
-      requestAnimationFrame(this.drawFrame.bind(this));
+    const timeSinceLastRender = performance.now() - this.lastRender;
+    if (timeSinceLastRender < MS_PER_FRAME) {
+      const timeToNextFrame = MS_PER_FRAME - timeSinceLastRender;
+      setTimeout(() => {
+        requestAnimationFrame(this.drawFrame.bind(this));
+      }, timeToNextFrame);
       return;
     }
 
-    this.ctx.drawImage(this.video, 0, 0, RESOLUTION, RESOLUTION);
+    if (this.useCamera) {
+      this.ctx.drawImage(this.video, 0, 0, RESOLUTION, RESOLUTION);
+    } else {
+      this.ctx.drawImage(this.image, 0, 0, RESOLUTION, RESOLUTION);
+    }
+
     const imageData = this.ctx.getImageData(0, 0, RESOLUTION, RESOLUTION);
     this.frame.updateData(imageData.data);
 
@@ -55,6 +65,19 @@ class ImageFeed {
 
   clear(): void {
     this.filterCallbacks = [];
+  }
+
+  setUseCamera(useCamera: boolean): void {
+    this.useCamera = useCamera;
+  }
+
+  getUseCamera(): boolean {
+    return this.useCamera;
+  }
+
+  setImage(imageUrl: string): void {
+    this.image.src = imageUrl;
+    this.ctx.clearRect(0, 0, RESOLUTION, RESOLUTION);
   }
 }
 

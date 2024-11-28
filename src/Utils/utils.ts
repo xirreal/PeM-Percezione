@@ -18,6 +18,30 @@ class Matrix {
     }
   }
 
+  getData(): Uint8ClampedArray {
+    const u8Data = new Uint8ClampedArray(this.data.length);
+    for (let i = 0; i < this.data.length; i++) {
+      u8Data[i] = this.data[i] * 255;
+    }
+    return u8Data;
+  }
+
+  clone(): Matrix {
+    return new Matrix(this.width, this.height, new Float32Array(this.data));
+  }
+
+  setPixel(
+    x: number,
+    y: number,
+    pixel: [number, number, number, number]
+  ): void {
+    const index = (y * this.width + x) * 4;
+    this.data[index] = pixel[0];
+    this.data[index + 1] = pixel[1];
+    this.data[index + 2] = pixel[2];
+    this.data[index + 3] = pixel[3];
+  }
+
   getPixel(x: number, y: number): [number, number, number, number] {
     const index = (y * this.width + x) * 4;
     if (x < 0 || x >= this.width || y < 0 || y >= this.height) {
@@ -89,7 +113,7 @@ class Matrix {
     const ctx = canvas.getContext("2d")!;
     const imageData = ctx.createImageData(this.width, this.height);
     const u8Data = new Uint8ClampedArray(this.data.length);
-    for(let i = 0; i < this.data.length; i++) {
+    for (let i = 0; i < this.data.length; i++) {
       u8Data[i] = this.data[i] * 255;
     }
     imageData.data.set(u8Data);
@@ -126,6 +150,11 @@ class Filter {
     new Float32Array([-1, -1, -1, -1, 8, -1, -1, -1, -1])
   );
 
+  static laplacian: Filter = new Filter(
+    3,
+    new Float32Array([0, -1, 0, -1, 4, -1, 0, -1, 0])
+  );
+
   static Gaussian(sigma: number): Filter {
     let size = Math.floor(sigma * 3) + 1;
     size = size % 2 === 0 ? size + 1 : size;
@@ -145,6 +174,43 @@ class Filter {
 
     for (let i = 0; i < size * size; i++) {
       data[i] /= sum;
+    }
+
+    return new Filter(size, data, sigma);
+  }
+  static LaplacianOfGaussian(sigma: number): Filter {
+    // Crea un filtro di dimensione size*size, con size = 3*sigma + 1
+    let size = Math.floor(sigma * 3) + 1;
+    // se size e' pari, lo rende dispari
+    size = size % 2 === 0 ? size + 1 : size;
+    // Crea un array di dimensione size*size
+    const data = new Float32Array(size * size);
+    // Calcola il centro del filtro
+    const half = Math.floor(size / 2);
+    // Inizializza la somma a 0
+    let sum = 0;
+
+    for (let i = 0; i < size; i++) {
+      for (let j = 0; j < size; j++) {
+        // Calcola la posizione relativa al centro
+        const x = i - half;
+        const y = j - half;
+        const value =
+          // -(1 / (Math.PI * Math.pow(sigma, 4))) *
+          (1 - (x * x + y * y) / (2 * sigma * sigma)) *
+          Math.exp(-(x * x + y * y) / (2 * sigma * sigma));
+        data[i * size + j] = value;
+        sum += value;
+      }
+    }
+
+    // Normalizza i valori dell'immagine (assumendo che siano tra -255 e 255)
+    let min = Math.min(...data);
+    let max = Math.max(...data);
+
+    // calcola il laplaciano della gaussiana
+    for (let i = 0; i < size * size; i++) {
+      data[i] = (data[i] - min) / (max - min);
     }
 
     return new Filter(size, data, sigma);
